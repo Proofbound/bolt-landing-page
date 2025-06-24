@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Proofbound - Transform Your Expertise Into Professional Books in Days</title>
+    <meta name="description" content="AI-powered book generation platform that transforms domain expertise into professional publications. From concept to 200-page printed book in days, not months." />
+    <meta name="keywords" content="AI book generation, professional publishing, domain expertise, book writing, business publishing" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://js.stripe.com/v3/"></script>
+  </head>
+  <body>
+    <div id="bgAnimation" class="background-animation"></div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Background Animation
+      function createBackgroundElements() {
+          const background = document.getElementById('bgAnimation');
+          if (!background) return;
+          
+          const elements = ['✒️', '📖', '📝', '📚', '📜', '✍️', '📄', '📔'];
+          const words = ['Chapter', 'Story', 'Novel', 'Author', 'Write', 'Create', 'Publish', 'Book', 'Words', 'Pages'];
+          
+          function createElement() {
+              const element = document.createElement('div');
+              element.className = 'floating-element';
+              
+              if (Math.random() < 0.7) {
+                  element.textContent = elements[Math.floor(Math.random() * elements.length)];
+                  element.classList.add(Math.random() < 0.5 ? 'quill' : 'book');
+              } else {
+                  element.textContent = words[Math.floor(Math.random() * words.length)];
+                  element.classList.add('word');
+              }
+              
+              element.style.left = Math.random() * 100 + '%';
+              element.style.animationDelay = Math.random() * 20 + 's';
+              
+              background.appendChild(element);
+              
+              setTimeout(() => {
+                  if (element.parentNode) {
+                      element.parentNode.removeChild(element);
+                  }
+              }, 25000);
+          }
+          
+          for (let i = 0; i < 15; i++) {
+              setTimeout(createElement, i * 1000);
+          }
+          
+          setInterval(createElement, 2000);
+      }
+
+      // Typing Animation
+      function typeWriter() {
+          const texts = ['200-page book', 'professional novel', 'bestseller', 'memoir', 'non-fiction guide'];
+          let textIndex = 0;
+          let charIndex = 0;
+          let isDeleting = false;
+          const typingElement = document.querySelector('.typing-text');
+          
+          if (!typingElement) return;
+          
+          function type() {
+              const currentText = texts[textIndex];
+              
+              if (isDeleting) {
+                  typingElement.textContent = currentText.substring(0, charIndex - 1);
+                  charIndex--;
+              } else {
+                  typingElement.textContent = currentText.substring(0, charIndex + 1);
+                  charIndex++;
+              }
+              
+              let typeSpeed = isDeleting ? 50 : 100;
+              
+              if (!isDeleting && charIndex === currentText.length) {
+                  typeSpeed = 2000;
+                  isDeleting = true;
+              } else if (isDeleting && charIndex === 0) {
+                  isDeleting = false;
+                  textIndex = (textIndex + 1) % texts.length;
+                  typeSpeed = 500;
+              }
+              
+              setTimeout(type, typeSpeed);
+          }
+          
+          type();
+      }
+
+      // Initialize animations when DOM is loaded
+      document.addEventListener('DOMContentLoaded', function() {
+          createBackgroundElements();
+          // Wait a bit for React to render before starting typing animation
+          setTimeout(typeWriter, 1000);
+      });
+
+      // Also initialize when the page is fully loaded (fallback)
+      window.addEventListener('load', function() {
+          if (!document.querySelector('.floating-element')) {
+              createBackgroundElements();
+          }
+          if (document.querySelector('.typing-text') && !document.querySelector('.typing-text').textContent) {
+              typeWriter();
+          }
+      });
+    </script>
+  </body>
+</html>

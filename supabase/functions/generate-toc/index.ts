@@ -1,0 +1,220 @@
+/*
+  # TOC Generation Edge Function
+
+  1. Purpose
+    - Generates table of contents for AI book generator
+    - Processes book idea and returns structured TOC data
+    - Handles POST requests with book parameters
+
+  2. Request Format
+    - title: string (book title)
+    - author: string (author name)  
+    - book_idea: string (book concept description)
+    - num_pages: number (target page count)
+    - style: string (book style - practical, academic, etc.)
+    - chapter_count: number (desired number of chapters)
+    - target_length: string (short, medium, long)
+
+  3. Response Format
+    - toc: array of sections with names, ideas, and page estimates
+    - total_estimated_pages: string (total page estimate)
+    - book_summary: string (generated summary)
+*/
+
+interface TOCRequest {
+  title: string;
+  author: string;
+  book_idea: string;
+  num_pages: number;
+  include_spine_title?: boolean;
+  style?: string;
+  chapter_count?: number;
+  target_length?: string;
+}
+
+interface TOCSection {
+  section_name: string;
+  section_ideas: string[];
+  estimated_pages: string;
+}
+
+interface TOCResponse {
+  toc: TOCSection[];
+  total_estimated_pages: string;
+  book_summary: string;
+}
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+Deno.serve(async (req: Request) => {
+  try {
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        status: 200,
+        headers: corsHeaders,
+      });
+    }
+
+    if (req.method !== "POST") {
+      return new Response(
+        JSON.stringify({ error: "Method not allowed" }),
+        {
+          status: 405,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+
+    const requestData: TOCRequest = await req.json();
+    
+    // Validate required fields
+    if (!requestData.title || !requestData.author || !requestData.book_idea) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: title, author, and book_idea are required" }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+
+    // Generate TOC based on the request
+    const tocResponse = generateTOC(requestData);
+
+    return new Response(
+      JSON.stringify(tocResponse),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      }
+    );
+
+  } catch (error) {
+    console.error('TOC Generation error:', error);
+    
+    return new Response(
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : "Internal server error" 
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+});
+
+function generateTOC(request: TOCRequest): TOCResponse {
+  const { title, author, book_idea, num_pages, style = 'practical', chapter_count = 5, target_length = 'medium' } = request;
+  
+  // Calculate pages per chapter
+  const pagesPerChapter = Math.floor(num_pages / chapter_count);
+  const remainderPages = num_pages % chapter_count;
+  
+  // Generate book summary
+  const bookSummary = generateBookSummary(title, book_idea, style);
+  
+  // Generate chapters based on book idea and style
+  const toc: TOCSection[] = [];
+  
+  // Generate chapter topics based on the book idea
+  const chapterTopics = generateChapterTopics(book_idea, style, chapter_count);
+  
+  for (let i = 0; i < chapter_count; i++) {
+    const basePages = pagesPerChapter;
+    const extraPage = i < remainderPages ? 1 : 0;
+    const chapterPages = basePages + extraPage;
+    
+    const section: TOCSection = {
+      section_name: chapterTopics[i].name,
+      section_ideas: chapterTopics[i].ideas,
+      estimated_pages: chapterPages > 0 ? `${chapterPages}-${chapterPages + 2}` : "1-2"
+    };
+    
+    toc.push(section);
+  }
+  
+  return {
+    toc,
+    total_estimated_pages: num_pages.toString(),
+    book_summary: bookSummary
+  };
+}
+
+function generateBookSummary(title: string, bookIdea: string, style: string): string {
+  const styleDescriptions = {
+    practical: "This practical guide provides actionable insights and step-by-step approaches",
+    academic: "This scholarly work presents comprehensive research and theoretical frameworks",
+    narrative: "This engaging narrative weaves together stories and insights",
+    reference: "This comprehensive reference manual serves as a complete resource"
+  };
+  
+  const baseDescription = styleDescriptions[style as keyof typeof styleDescriptions] || styleDescriptions.practical;
+  
+  return `${baseDescription} for understanding ${title.toLowerCase()}. ${bookIdea.substring(0, 200)}${bookIdea.length > 200 ? '...' : ''}`;
+}
+
+function generateChapterTopics(bookIdea: string, style: string, chapterCount: number): Array<{name: string, ideas: string[]}> {
+  // This is a simplified topic generation - in a real implementation, 
+  // you might use AI/LLM services for more sophisticated content generation
+  
+  const topics: Array<{name: string, ideas: string[]}> = [];
+  
+  // Extract key themes from book idea
+  const isHistorical = bookIdea.toLowerCase().includes('history') || bookIdea.toLowerCase().includes('historical');
+  const isAcademic = style === 'academic' || bookIdea.toLowerCase().includes('academic');
+  const isTechnical = bookIdea.toLowerCase().includes('technical') || bookIdea.toLowerCase().includes('guide');
+  
+  if (isHistorical) {
+    const historicalTopics = [
+      { name: "Early Foundations and Origins", ideas: ["Historical context", "Founding principles", "Early development", "Key figures"] },
+      { name: "Growth and Development Period", ideas: ["Expansion phases", "Major milestones", "Influential events", "Community building"] },
+      { name: "Challenges and Transformations", ideas: ["Major obstacles", "Adaptation strategies", "Turning points", "Resilience factors"] },
+      { name: "Modern Era and Evolution", ideas: ["Contemporary developments", "Recent changes", "Current status", "Future implications"] },
+      { name: "Legacy and Impact", ideas: ["Long-term effects", "Cultural significance", "Lessons learned", "Historical importance"] }
+    ];
+    
+    return historicalTopics.slice(0, chapterCount);
+  }
+  
+  if (isTechnical) {
+    const technicalTopics = [
+      { name: "Introduction and Fundamentals", ideas: ["Core concepts", "Basic principles", "Getting started", "Essential knowledge"] },
+      { name: "Core Methodology", ideas: ["Step-by-step process", "Best practices", "Key techniques", "Implementation strategies"] },
+      { name: "Advanced Techniques", ideas: ["Complex applications", "Expert methods", "Optimization strategies", "Advanced concepts"] },
+      { name: "Practical Applications", ideas: ["Real-world examples", "Case studies", "Implementation guides", "Success stories"] },
+      { name: "Troubleshooting and Optimization", ideas: ["Common issues", "Problem-solving", "Performance improvement", "Maintenance"] }
+    ];
+    
+    return technicalTopics.slice(0, chapterCount);
+  }
+  
+  // Default generic structure
+  const genericTopics = [
+    { name: "Introduction and Overview", ideas: ["Background information", "Scope and objectives", "Key concepts", "Reader expectations"] },
+    { name: "Foundational Concepts", ideas: ["Core principles", "Essential knowledge", "Theoretical framework", "Basic understanding"] },
+    { name: "Detailed Analysis", ideas: ["In-depth exploration", "Critical examination", "Comprehensive coverage", "Detailed insights"] },
+    { name: "Practical Applications", ideas: ["Real-world examples", "Implementation strategies", "Case studies", "Actionable insights"] },
+    { name: "Advanced Topics", ideas: ["Complex concepts", "Expert-level content", "Specialized knowledge", "Advanced techniques"] },
+    { name: "Future Perspectives", ideas: ["Emerging trends", "Future developments", "Implications", "Next steps"] },
+    { name: "Conclusion and Summary", ideas: ["Key takeaways", "Final thoughts", "Summary of insights", "Call to action"] }
+  ];
+  
+  return genericTopics.slice(0, chapterCount);
+}
