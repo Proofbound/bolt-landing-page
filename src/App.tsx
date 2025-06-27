@@ -12,6 +12,7 @@ import SignupPage from './components/auth/SignupPage';
 import Dashboard from './components/dashboard/Dashboard';
 import SuccessPage from './components/SuccessPage';
 import AIBookGenerator from './components/AIBookGenerator';
+import DemoAIBookGenerator from './components/DemoAIBookGenerator';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function LandingPage() {
@@ -65,6 +66,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/demo" element={<DemoAIBookGenerator />} />
         <Route 
           path="/ai-generator" 
           element={
