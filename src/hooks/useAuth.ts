@@ -9,11 +9,15 @@ export function useAuth() {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
-      // Check if there's an auth error indicating invalid refresh token
-      if (error && error.message.includes('Invalid Refresh Token')) {
-        // Clear the invalid token by signing out
+      // Check if there's an auth error (expired/invalid tokens)
+      if (error) {
+        // Silently clear any invalid session data
         supabase.auth.signOut();
         setUser(null);
+        // Don't log 401 errors as they're expected when tokens expire
+        if (!error.message.includes('refresh_token') && !error.message.includes('401')) {
+          console.error('Auth session error:', error);
+        }
       } else {
         setUser(session?.user ?? null);
       }
