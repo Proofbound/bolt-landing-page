@@ -148,39 +148,40 @@ async function generateBookCoverWithHAL9(request: CoverRequest, hal9Token: strin
   const imagePrompt = createImagePrompt(title, author, book_description, style_prompt, color_scheme, design_style);
   
   try {
-    // Try to generate image using HAL9 (if they support image generation)
-    // Note: This is a placeholder - you'll need to check HAL9's actual image generation API
-    const hal9Response = await fetch('https://api.hal9.com/v1/images/generations', {
+    // Call HAL9 /cover endpoint
+    const hal9Response = await fetch('https://api.hal9.com/books/bookgeneratorapi/proxy/cover', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${hal9Token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        prompt: imagePrompt,
-        n: 1,
-        size: "512x768", // Book cover aspect ratio
-        response_format: "url"
+        title: title,
+        author: author,
+        book_description: book_description,
+        style_prompt: style_prompt,
+        color_scheme: color_scheme,
+        design_style: design_style
       }),
     });
 
     if (hal9Response.ok) {
       const hal9Data = await hal9Response.json();
-      const imageUrl = hal9Data.data?.[0]?.url;
+      const imageUrl = hal9Data.cover_url || hal9Data.image_url;
       
       if (imageUrl) {
         return {
           cover_url: imageUrl,
-          design_description: `AI-generated ${design_style} book cover for "${title}" by ${author}. The design incorporates ${color_scheme} colors and reflects the book's theme.`,
-          color_palette: getColorPalette(color_scheme, design_style)
+          design_description: hal9Data.design_description || `AI-generated ${design_style} book cover for "${title}" by ${author}. The design incorporates ${color_scheme} colors and reflects the book's theme.`,
+          color_palette: hal9Data.color_palette || getColorPalette(color_scheme, design_style)
         };
       }
     }
   } catch (error) {
-    console.error('HAL9 image generation failed:', error);
+    console.error('HAL9 cover generation failed:', error);
     
     const errorMessage = getErrorMessage(error);
-    console.log(`HAL9 image generation error: ${errorMessage}`);
+    console.log(`HAL9 cover generation error: ${errorMessage}`);
   }
   
   // Fallback to placeholder generation

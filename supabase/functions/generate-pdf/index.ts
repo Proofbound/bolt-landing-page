@@ -144,31 +144,50 @@ async function generateBookPDF(request: PDFRequest): Promise<PDFResponse> {
     page_format = 'A4' 
   } = request;
   
-  // Calculate total word count
+  // Get HAL9 token
+  const hal9Token = Deno.env.get('VITE_HAL9_TOKEN');
+  if (!hal9Token) {
+    throw new Error('VITE_HAL9_TOKEN not configured');
+  }
+
+  // Call HAL9 /pdf endpoint
+  const hal9Response = await fetch('https://api.hal9.com/books/bookgeneratorapi/proxy/pdf', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${hal9Token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      title: title,
+      author: author,
+      chapters: chapters,
+      cover_url: cover_url,
+      include_toc: include_toc,
+      page_format: page_format
+    }),
+  });
+
+  if (!hal9Response.ok) {
+    const errorData = await hal9Response.json().catch(() => ({ error: 'Unknown HAL9 API error' }));
+    throw new Error(`HAL9 PDF generation failed: ${errorData.error || hal9Response.statusText}`);
+  }
+
+  const hal9Data = await hal9Response.json();
+  
+  if (!hal9Data.pdf_url) {
+    throw new Error('No PDF URL returned from HAL9 API');
+  }
+
   const totalWordCount = chapters.reduce((total, chapter) => {
     return total + chapter.content.split(/\s+/).length;
   }, 0);
-  
-  // Estimate pages (assuming ~300 words per page)
-  const estimatedPages = Math.ceil(totalWordCount / 300);
-  
-  // Generate HTML content for PDF conversion
-  const htmlContent = generateHTMLContent(title, author, chapters, cover_url, include_toc, page_format);
-  
-  // In a real implementation, you would use a PDF generation library
-  // such as Puppeteer, jsPDF, or a service like HTMLtoPDF
-  // For now, we'll create a placeholder response
-  
-  const pdfUrl = await createPlaceholderPDF(htmlContent, title);
-  
-  const response: PDFResponse = {
-    pdf_url: pdfUrl,
-    total_pages: estimatedPages + (include_toc ? 2 : 0) + (cover_url ? 1 : 0), // Add pages for TOC and cover
-    word_count: totalWordCount,
-    file_size_mb: Math.round((totalWordCount / 1000) * 0.1 * 100) / 100 // Rough estimate
-  };
 
-  return response;
+  return {
+    pdf_url: hal9Data.pdf_url,
+    total_pages: hal9Data.total_pages || Math.ceil(totalWordCount / 300),
+    word_count: hal9Data.word_count || totalWordCount,
+    file_size_mb: hal9Data.file_size_mb || Math.round((totalWordCount / 1000) * 0.1 * 100) / 100
+  };
 }
 
 function generateHTMLContent(

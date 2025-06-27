@@ -1,6 +1,5 @@
 /*
-  # TOC Generation Edge Function - FRESH VERSION 2025-06-26-14:52
-  # UNIQUE IDENTIFIER: HAL9-TOC-FRESH-98765
+  # TOC Generation Edge Function
 
   1. Purpose
     - Generates table of contents for AI book generator
@@ -127,7 +126,6 @@ async function generateTOC(request: TOCRequest): Promise<TOCResponse> {
   try {
     // Get HAL9 token from environment
     const hal9Token = Deno.env.get('VITE_HAL9_TOKEN');
-    console.log('HAL9 Token check:', hal9Token ? `Token found (length: ${hal9Token.length})` : 'Token not found');
     if (!hal9Token) {
       console.log('VITE_HAL9_TOKEN not found, falling back to local generation');
       return generateLocalTOC(request);
@@ -188,32 +186,100 @@ async function generateTOC(request: TOCRequest): Promise<TOCResponse> {
 }
 
 function generateLocalTOC(request: TOCRequest): TOCResponse {
-  const { title, author, book_idea, num_pages } = request;
+  const { title, author, book_idea, num_pages, style = 'practical', chapter_count = 5, target_length = 'medium' } = request;
   
-  // Simplified fallback - return a basic TOC structure
-  const basicTOC: TOCSection[] = [
-    {
-      section_name: "Introduction",
-      section_ideas: ["Overview", "Background", "Objectives"],
-      estimated_pages: "10-12"
-    },
-    {
-      section_name: "Main Content",
-      section_ideas: ["Core concepts", "Key principles", "Examples"],
-      estimated_pages: "40-50"
-    },
-    {
-      section_name: "Conclusion",
-      section_ideas: ["Summary", "Key takeaways", "Next steps"],
-      estimated_pages: "10-15"
-    }
-  ];
-
-  const bookSummary = `This book "${title}" by ${author} explores ${book_idea.substring(0, 100)}...`;
-
+  // Calculate pages per chapter
+  const pagesPerChapter = Math.floor(num_pages / chapter_count);
+  const remainderPages = num_pages % chapter_count;
+  
+  // Generate book summary
+  const bookSummary = generateBookSummary(title, book_idea, style);
+  
+  // Generate chapters based on book idea and style
+  const toc: TOCSection[] = [];
+  
+  // Generate chapter topics based on the book idea
+  const chapterTopics = generateChapterTopics(book_idea, style, chapter_count);
+  
+  for (let i = 0; i < chapter_count; i++) {
+    const basePages = pagesPerChapter;
+    const extraPage = i < remainderPages ? 1 : 0;
+    const chapterPages = basePages + extraPage;
+    
+    const section: TOCSection = {
+      section_name: chapterTopics[i].name,
+      section_ideas: chapterTopics[i].ideas,
+      estimated_pages: chapterPages > 0 ? `${chapterPages}-${chapterPages + 2}` : "1-2"
+    };
+    
+    toc.push(section);
+  }
+  
   return {
-    toc: basicTOC,
+    toc,
     total_estimated_pages: num_pages.toString(),
     book_summary: bookSummary
   };
+}
+
+function generateBookSummary(title: string, bookIdea: string, style: string): string {
+  const styleDescriptions = {
+    practical: "This practical guide provides actionable insights and step-by-step approaches",
+    academic: "This scholarly work presents comprehensive research and theoretical frameworks",
+    narrative: "This engaging narrative weaves together stories and insights",
+    reference: "This comprehensive reference manual serves as a complete resource"
+  };
+  
+  const baseDescription = styleDescriptions[style as keyof typeof styleDescriptions] || styleDescriptions.practical;
+  
+  return `${baseDescription} for understanding ${title.toLowerCase()}. ${bookIdea.substring(0, 200)}${bookIdea.length > 200 ? '...' : ''}`;
+}
+
+function generateChapterTopics(bookIdea: string, style: string, chapterCount: number): Array<{name: string, ideas: string[]}> {
+  // This is a simplified topic generation - in a real implementation, 
+  // you might use AI/LLM services for more sophisticated content generation
+  
+  const topics: Array<{name: string, ideas: string[]}> = [];
+  
+  // Extract key themes from book idea
+  const isHistorical = bookIdea.toLowerCase().includes('history') || bookIdea.toLowerCase().includes('historical');
+  const isAcademic = style === 'academic' || bookIdea.toLowerCase().includes('academic');
+  const isTechnical = bookIdea.toLowerCase().includes('technical') || bookIdea.toLowerCase().includes('guide');
+  
+  if (isHistorical) {
+    const historicalTopics = [
+      { name: "Early Foundations and Origins", ideas: ["Historical context", "Founding principles", "Early development", "Key figures"] },
+      { name: "Growth and Development Period", ideas: ["Expansion phases", "Major milestones", "Influential events", "Community building"] },
+      { name: "Challenges and Transformations", ideas: ["Major obstacles", "Adaptation strategies", "Turning points", "Resilience factors"] },
+      { name: "Modern Era and Evolution", ideas: ["Contemporary developments", "Recent changes", "Current status", "Future implications"] },
+      { name: "Legacy and Impact", ideas: ["Long-term effects", "Cultural significance", "Lessons learned", "Historical importance"] }
+    ];
+    
+    return historicalTopics.slice(0, chapterCount);
+  }
+  
+  if (isTechnical) {
+    const technicalTopics = [
+      { name: "Introduction and Fundamentals", ideas: ["Core concepts", "Basic principles", "Getting started", "Essential knowledge"] },
+      { name: "Core Methodology", ideas: ["Step-by-step process", "Best practices", "Key techniques", "Implementation strategies"] },
+      { name: "Advanced Techniques", ideas: ["Complex applications", "Expert methods", "Optimization strategies", "Advanced concepts"] },
+      { name: "Practical Applications", ideas: ["Real-world examples", "Case studies", "Implementation guides", "Success stories"] },
+      { name: "Troubleshooting and Optimization", ideas: ["Common issues", "Problem-solving", "Performance improvement", "Maintenance"] }
+    ];
+    
+    return technicalTopics.slice(0, chapterCount);
+  }
+  
+  // Default generic structure
+  const genericTopics = [
+    { name: "Introduction and Overview", ideas: ["Background information", "Scope and objectives", "Key concepts", "Reader expectations"] },
+    { name: "Foundational Concepts", ideas: ["Core principles", "Essential knowledge", "Theoretical framework", "Basic understanding"] },
+    { name: "Detailed Analysis", ideas: ["In-depth exploration", "Critical examination", "Comprehensive coverage", "Detailed insights"] },
+    { name: "Practical Applications", ideas: ["Real-world examples", "Implementation strategies", "Case studies", "Actionable insights"] },
+    { name: "Advanced Topics", ideas: ["Complex concepts", "Expert-level content", "Specialized knowledge", "Advanced techniques"] },
+    { name: "Future Perspectives", ideas: ["Emerging trends", "Future developments", "Implications", "Next steps"] },
+    { name: "Conclusion and Summary", ideas: ["Key takeaways", "Final thoughts", "Summary of insights", "Call to action"] }
+  ];
+  
+  return genericTopics.slice(0, chapterCount);
 }
